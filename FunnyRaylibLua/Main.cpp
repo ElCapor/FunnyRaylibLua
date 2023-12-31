@@ -1,4 +1,5 @@
 #include <raylib.h>
+#include <raymath.h>
 #define NO_FONT_AWESOME
 #include "rlImGui.h"
 
@@ -9,11 +10,46 @@
 #include <functional>
 #include <stdarg.h>
 
+class Transform2D {
+public:
+	Vector2 position{};
+	Vector2 scale{};
+	float rotation; // In radians
+	
+	Transform2D(Vector2 position = {0,0}, Vector2 scale = {0,0}, float rotationInRadians = 0)
+	{
+		this->position = position;
+		this->scale = scale;
+		this->rotation = rotationInRadians;
+	}
+	
+	Matrix GetTransformMatrix() const {
+		Matrix mat = MatrixIdentity();
+		mat = MatrixTranslate(position.x, position.y, 0.0f);
+		mat = MatrixMultiply(mat, MatrixScale(scale.x, scale.y, 1.0f));
+		mat = MatrixMultiply(mat, MatrixRotate({ rotation, 0, 0 }, 1));
+		return mat;
+	}
+
+	// Helper functions for setting rotation in degrees or radians
+	void SetRotationDegrees(float degrees) {
+		rotation = DEG2RAD * degrees;
+	}
+
+	void SetRotationRadians(float radians) {
+		rotation = radians;
+	}
+	
+};
+
+
 
 enum UiType
 {
 	TYPE_NONE = -1,
 	BUTTON = 1,
+	FRAME = 2,
+	TEXTLABEL = 3,
 };
 
 #define DECLARE_UI(type) UiType GetClassName() override \
@@ -24,43 +60,79 @@ enum UiType
 class UiElement
 {
 public:
+
+	UiElement* parent;
+	std::vector<UiElement*> children;
+
+public:
+	Transform2D transform;
+	Vector2 size; // width & height
+	bool isActive;
+	Color backgroundColor;
+	int backgroundTransparency;
+	Color borderColor;
+	int borderSizePixel;
+	int Transparency;
+	bool isVisible;
+	int zIndex;
+public:
+	UiElement() : parent(nullptr), size({0,0}), isActive(true), backgroundColor(WHITE), backgroundTransparency(0),
+	              borderColor(BLACK),
+	              borderSizePixel(0),
+	              Transparency(0), isVisible(true), zIndex(0), transform()
+	{
+	}
+
 	virtual UiType GetClassName()
 	{
 		return UiType::TYPE_NONE;
 	}
-	
-	virtual void draw() = 0;
+
+	void AddChild(UiElement* child)
+	{
+		child->parent = this;
+		children.emplace_back(child);
+	}
+	virtual void Draw() = 0;
 
 };
 
 
+class Frame : public UiElement
+{
+	DECLARE_UI(UiType::FRAME);
+
+};
 
 class Button : public UiElement
 {
 public:
 	DECLARE_UI(UiType::BUTTON);
 
-	int x;
-	int y;
-	int width;
-	int height;
-	int roundness;
-	Color color;
-	Button() : x(0), y(0), width(0), height(0), roundness(0), color(WHITE)
-	{}
-	void create(int x = 0, int y = 0, int width = 0, int height = 0, Color color = WHITE)
+	Button() : UiElement()
 	{
-		this->x = x;
-		this->y = y;
-		this->width = width;
-		this->height = height;
-		this->roundness = 0;
-		this->color = color;
+		
 	}
 	
-	void draw() override
+	void Draw() override
 	{
+		
+	}
+};
 
+class TextLabel : public UiElement
+{
+public:
+	DECLARE_UI(UiType::TEXTLABEL);
+	std::string Text;
+	TextLabel(std::string text = "") : UiElement(), Text(text)
+	{
+		
+	}
+
+	void Draw()
+	{
+		
 	}
 };
 
@@ -88,7 +160,7 @@ public:
 		{
 		case UiType::BUTTON:
 			
-			dynamic_cast<Button*>(element)->create(std::forward<Args>(args)...);
+			//dynamic_cast<Button*>(element)->create(std::forward<Args>(args)...);
 			break;
 
 		case UiType::TYPE_NONE:
@@ -141,7 +213,7 @@ public:
 		auto lang = TextEditor::LanguageDefinition::Lua();
 		editor.SetLanguageDefinition(lang);
 
-		lua
+		
 	}
 
 	void SetLuaEngine(LuaEngine* luaEngine)
@@ -239,8 +311,7 @@ int main()
 	luaEngine.Init();
 	UiEngine uiEngine;
 	Button btn;
-	uiEngine.Construct(&btn, 200, 200, 100, 100, WHITE);
-	std::cout << btn.x << std::endl;
+	//uiEngine.Construct(&btn, 200, 200, 100, 100, WHITE);
 	editor.SetLuaEngine(&luaEngine);
 	while (!WindowShouldClose())
 	{
